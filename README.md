@@ -158,6 +158,36 @@ On a non-convex trefoil (convexity margin −2.86, far below the training minimu
 
 ---
 
+## OOD generalisation: lobed shapes
+
+300 lobed shapes were generated with $r(\theta) = r_0(1 + a\cos k(\theta - \phi))$, $k \in \{3,4,5\}$, $a \in [0.03, 0.2]$. These are single-frequency perturbations of a circle that are convex at low amplitude but become concave once $a$ is large enough for a given $k$.
+
+To isolate family shift from concavity, errors are compared in the overlap window $0 \le \text{margin} \le 0.8$, where both the convex test set and the lobed set have fully convex shapes. The errors are normalised by the convex test-set median in that window.
+
+![OOD concavity — error vs convexity margin, coloured by k](docs/figures/ood_concavity.png)
+
+**Family-shift offset.** In the overlap window the lobed shapes are 1.3–1.4× worse than convex shapes at the same convexity margin (bootstrap 95% CI excludes 1.0 for all three fields). This offset is consistent across margin bins of width 0.2, so it is not an artefact of the two sets sitting at different margins. $p$ shows the largest offset (~1.4×), consistent with the trefoil result above.
+
+The offset is present even at $\text{margin} \approx 0.8$ (near-circular), which suggests the model is sensitive to the *type* of shape variation, not just convexity.
+
+![OOD amplitude — error vs lobe amplitude a, coloured by k](docs/figures/ood_amplitude.png)
+
+**Amplitude is the right OOD axis for lobed shapes.** Plotting error against amplitude $a$ (rather than convexity margin) collapses the three k-curves. The k=3, 4 and 5 series largely overlap, meaning lobe frequency does not drive the offset independently — amplitude does. This rules out a resolution bottleneck as the primary cause: if the model were failing because it cannot resolve high-frequency boundary detail, k=5 would sit above k=3 at the same $a$, which it does not.
+
+To reproduce:
+
+```bash
+uv run python scripts/generate_dataset.py --sampler lobed --amp 0.03 0.2 \
+    --n-shapes 300 --seed 2 --out ood_lobed
+uv run python scripts/evaluate.py checkpoints/best.pt ood_lobed
+uv run python scripts/plot_convexity.py data/test_convex_eval.csv data/ood_lobed_eval.csv \
+    --out docs/figures/ood_concavity.png
+uv run python scripts/plot_convexity.py data/test_convex_eval.csv data/ood_lobed_eval.csv \
+    --x amp --out docs/figures/ood_amplitude.png
+```
+
+---
+
 ## Layout
 
 ```text
