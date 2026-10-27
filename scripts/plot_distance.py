@@ -35,7 +35,7 @@ def nn_distance(X, train):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="per-shape error vs distance to the training set.")
-    parser.add_argument("ckpt", help="e.g. models/best.pt")
+    parser.add_argument("ckpt", help="e.g. checkpoints/best.pt")
     parser.add_argument("csv", nargs="+", help="output of scripts/evaluate.py, e.g. data/test_convex_eval.csv")
     parser.add_argument("--fit", nargs="+", default=["test_convex", "ood_lobed"],
                         help="datasets the log-error vs distance fit is made on")

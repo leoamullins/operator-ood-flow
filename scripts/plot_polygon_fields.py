@@ -17,7 +17,7 @@ from plot_trefoil import plot_fields
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="DeepONet vs LBM on the median polygon of each side count.")
-    parser.add_argument("ckpt", help="e.g. models/best.pt")
+    parser.add_argument("ckpt", help="e.g. checkpoints/best.pt")
     parser.add_argument("--dataset", default="ood_polygon", help="name in data/")
     parser.add_argument("--sides", type=int, nargs="+", default=[3, 4, 6])
     parser.add_argument("--out-dir", default=str(ROOT / "docs/figures"))
