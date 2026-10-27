@@ -44,7 +44,18 @@ def convexity_ratio(mask):
 
 
 def sample_convex_shapes(
-    n_shapes, Ny, Nx, cx, cy, r0, eps, ell, rng, a1_max=0.3, a2_max=0.18, tol=-0.2,
+    n_shapes,
+    Ny,
+    Nx,
+    cx,
+    cy,
+    r0,
+    eps,
+    ell,
+    rng,
+    a1_max=0.3,
+    a2_max=0.18,
+    tol=-0.2,
     max_rounds=100,
 ):
     kept_radii, kept_margins = [], []
@@ -92,3 +103,56 @@ def is_convex(radii, tol=0.0):
     curv = radii**2 + 2 * r1**2 - radii * r2
     margin = (curv / radii**2).min(axis=-1)  # dimensionless; 1.0 for a perfect circle
     return margin >= tol, margin
+
+
+# -------
+# SAMPLING POLYGONS WITH CORNERS
+
+
+def sample_polygon_shapes(n_shapes, Ny, Nx, cx, cy, r0, rng, sides=(3, 4, 5, 6, 7, 8)):
+    ns = sides
+
+    y, x = np.mgrid[0:Ny, 0:Nx]
+    px, py = x - cx, y - cy
+
+    masks = []
+    sides_used = []
+    radii = []
+    for _ in range(n_shapes):
+        n = rng.choice(ns)
+        phi = rng.uniform(0, 2 * np.pi)
+
+        sides_used.append(n)
+
+        # choose R so that every polygon has same area as a circle of radius r0
+        R = r0 * np.sqrt(2 * np.pi / (n * np.sin(2 * np.pi / n)))
+
+        corners = []
+        for j in range(n):
+            # corners sit at (Rcos, Rsin): generate a tuple coordinate
+            corners.append(
+                (
+                    R * np.cos(phi + 2 * np.pi * j / n),
+                    R * np.sin(phi + 2 * np.pi * j / n),
+                )
+            )
+
+        inside = np.ones((Ny, Nx), dtype=bool)
+        for j in range(n):
+            sx, sy = corners[j]  # start of an edge
+            tx, ty = corners[(j + 1) % n]  # end of edge, wraps back to 0
+            ex, ey = tx - sx, ty - sy  # edge vector
+            qx, qy = px - sx, py - sy  # start corner - > every grid point
+            inside &= (ex * qy - ey * qx) >= 0
+
+        masks.append(inside)
+        radii.append(
+            R * np.cos(np.pi / n) / np.cos((THETA - phi) % (2 * np.pi / n) - np.pi / n)
+        )
+
+    return (
+        np.array(masks),
+        np.array(radii),
+        np.zeros(n_shapes),
+        {"sides": np.array(sides_used)},
+    )
