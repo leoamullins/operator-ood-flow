@@ -9,7 +9,12 @@ import time
 
 import numpy as np
 
-from geometry import sample_convex_shapes, sample_lobed_shapes, signed_distance
+from geometry import (
+    sample_convex_shapes,
+    sample_lobed_shapes,
+    sample_polygon_shapes,
+    signed_distance,
+)
 from solvers.lbm import solve_batch
 
 # --- settings (s = 1.5) ---
@@ -26,9 +31,12 @@ SHAPE_KW = {"eps": 0.08, "ell": 1.0, "a1_max": 0.3, "a2_max": 0.18, "tol": -0.2}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="generate a flow-past-a-body dataset.")
-    parser.add_argument("--sampler", choices=["convex", "lobed"], default="convex")
+    parser.add_argument("--sampler", choices=["convex", "lobed", "polygon"], default="convex")
     parser.add_argument(
         "--amp", type=float, nargs=2, default=[0.1, 0.4], help="lobed: amplitude range"
+    )
+    parser.add_argument(
+        "--sides", type=int, nargs="+", default=[3, 4, 5, 6, 7, 8], help="polygon: side counts"
     )
     parser.add_argument("--n-shapes", type=int, default=N_SHAPES)
     parser.add_argument("--batch", type=int, default=BATCH)
@@ -38,14 +46,20 @@ if __name__ == "__main__":
     args.out = args.out or f"train_{args.sampler}"
 
     rng = np.random.default_rng(args.seed)
+    params = {}  # per-shape sampler parameters, saved alongside the fields
     if args.sampler == "convex":
         shape_kw = SHAPE_KW
         masks, radii, margins = sample_convex_shapes(
             args.n_shapes, Ny, Nx, cx, cy, r0=r0, rng=rng, **shape_kw
         )
-    else:
+    elif args.sampler == "lobed":
         shape_kw = {"amp": args.amp}
         masks, radii, margins = sample_lobed_shapes(
+            args.n_shapes, Ny, Nx, cx, cy, r0=r0, rng=rng, **shape_kw
+        )
+    else:
+        shape_kw = {"sides": args.sides}
+        masks, radii, margins, params = sample_polygon_shapes(
             args.n_shapes, Ny, Nx, cx, cy, r0=r0, rng=rng, **shape_kw
         )
 
@@ -76,6 +90,7 @@ if __name__ == "__main__":
     print(f"{(~keep).sum()} of {len(keep)} shapes did not converge, dropping them")
     masks, sdf, ux, uy, p = masks[keep], sdf[keep], ux[keep], uy[keep], p[keep]
     radii, margins = radii[keep], margins[keep]
+    params = {name: v[keep] for name, v in params.items()}
 
     data_dir = Path(__file__).resolve().parent.parent / "data"
     data_dir.mkdir(exist_ok=True)
@@ -89,6 +104,7 @@ if __name__ == "__main__":
         p=p,
         radii=radii,
         margins=margins,
+        **params,
     )
     with open(data_dir / f"{args.out}.json", "w") as fp:
         json.dump(
