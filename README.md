@@ -1,6 +1,6 @@
 # Operator Learning
 
-**Status:** In progress. A DeepONet trained on 1200 convex shapes reaches 1–3% relative error in distribution. Out-of-distribution evaluation has started with a first non-convex shape. Sharp corners and multiple obstacles are still to do.
+**Status:** In progress. A DeepONet trained on 1200 convex shapes reaches 1–3% relative error in distribution. Out-of-distribution evaluation covers a non-convex trefoil, lobed shapes and regular polygons, and most of the OOD error is explained by distance to the nearest training shape. Multiple obstacles are still to do.
 
 ---
 
@@ -16,145 +16,45 @@ This project asks:
 
 ---
 
-## Background: operator learning
+## Key results so far
 
-Standard supervised learning methods map vectors to vectors (a feature vector to a target vector), in other words the method learns a function. Operator learning maps *functions* to *functions*; here, an input function $u$ to the output of some operator applied to it.
-
----
-
-## Problem Setup
-
-### Antiderivative operator (validation case)
-
-$$
-G: u \mapsto s, \qquad s(x) = \int_0^x u(t) \, dt, \qquad s(0) = 0
-$$
-
-This case is deliberately trivial as an application and quadrature solves it to machine precision. It is used to debug the implementation rather than as a difficult learning problem.
-
-### Steady flow past a convex body
-
-$$
-G: \text{shape} \mapsto (u_x, u_y, p)
-$$
-
-The operator maps the geometry of a 2D body in a channel to the steady flow field around it at $Re = 20$. The shape is given to the network as its signed distance function (SDF), and the output is the velocity and pressure at arbitrary query points.
-
----
-
-## Data Generation
-
-### Gaussian random functions
-
-Input functions are drawn from a Gaussian process on $[0, 1]$ with an RBF kernel
-
-$$
-k(x, x') = \exp\left(-\frac{(x - x')^2}{2\ell^2}\right)
-$$
-
-This uses a Cholesky factorisation to transform a random sample $z$ into $u \sim N(0, K)$.
-
-For the antiderivative, each $u$ is sampled on a fine grid and integrated using the cumulative trapezium rule.
-
-### Convex shapes
-
-Body boundaries are defined in polar form around the centre $(c_x, c_y)$:
-
-$$
-r(\theta) = r_0 \left(1 + a_1 \cos(\theta - \phi_1) + a_2 \cos 2(\theta - \phi_2) + \varepsilon\, g(\theta)\right)
-$$
-
-Here $g$ is a periodic Gaussian random function and $a_1, a_2, \phi_1, \phi_2$ are drawn uniformly. Shapes are kept only if they are (close to) convex. The check uses the curvature of the boundary, which is computed spectrally from $r$, $r'$ and $r''$.
-
-### Flow solver
-
-Each shape is solved with a D2Q9 lattice Boltzmann solver ([src/solvers/lbm.py](src/solvers/lbm.py)), written in JAX and batched across shapes. The body uses bounce-back walls. The solver runs until the field stops changing (tolerance $10^{-5}$), and shapes that don't converge are dropped.
-
-Generate the dataset with:
-
-```bash
-uv run python scripts/generate_dataset.py
-```
-
-This writes `data/train_convex.npz` (masks, SDFs, $u_x$, $u_y$, $p$, radii, convexity margins) and `data/train_convex.json` (grid size, $r_0$, centre, $Re$ and the shape-sampling settings). The default grid is $150 \times 600$ with $r_0 = 15$.
-
----
-
-## Model and Training
-
-[src/model.py](src/model.py) implements a DeepONet with three outputs:
-
-- **Branch net:** an MLP on the SDF, downsampled to $32 \times 64$ and flattened.
-- **Trunk net:** an MLP on the query coordinates $(x, y)$, in units of $r_0$ relative to the body centre.
-
-The output for each field is the dot product of the branch and trunk features, plus a bias.
-
-[src/train.py](src/train.py) works as follows:
-
-- Crops the domain to $[-2r_0, 8r_0] \times [-2.5r_0, 2.5r_0]$ around the body.
-- Measures pressure relative to the upstream edge.
-- Normalises each field with mean and std from the training fluid cells.
-- Holds out 200 shapes for validation.
-- Trains with AdamW (peak LR $5 \times 10^{-4}$, gradients clipped to norm 1), linear warmup and cosine decay. Each batch uses 32 shapes and 2048 random query points, and the MSE is masked to fluid cells.
-- Optionally oversamples query points near the body: `WALL_FRAC` of each batch's points come from cells within `WALL_BAND` of a training body's surface.
-- Every 10 epochs, reports the relative $L^2$ error on the validation set for each field, over all fluid cells and over the wall band ($|\text{sdf}| < 0.3\,r_0$).
-
-```bash
-EPOCHS=1000 WALL_FRAC=0.5 uv run python src/train.py
-```
-
-The best model is saved to `checkpoints/best.pt`, together with its model config, normalisation stats, data config and train/val split. The loss history goes to `checkpoints/history.json`. To reload the model:
-
-```python
-ckpt = torch.load("checkpoints/best.pt")
-model = DeepONet(**ckpt["model_cfg"])
-model.load_state_dict(ckpt["model"])
-```
-
-### Evaluation and figures
-
-Generate the test set, compute per-shape errors, and rebuild the figures:
-
-```bash
-uv run python scripts/generate_dataset.py --seed 1 --n-shapes 200 --out test_convex
-uv run python scripts/evaluate.py checkpoints/best.pt test_convex               # -> data/test_convex_eval.csv
-uv run python scripts/evaluate.py checkpoints/best.pt train_convex --val        # validation shapes only
-uv run python scripts/plot_convexity.py data/test_convex_eval.csv               # -> docs/figures/error_vs_convexity.png
-uv run python scripts/plot_trefoil.py checkpoints/best.pt                       # -> docs/figures/nonconvex_trefoil.png
-```
-
-`evaluate.py` writes one row per shape: index, convexity margin, and relative $L^2$ for $u_x$, $u_y$ and $p$ over all fluid cells and over the wall band. It takes the SDF resolution, normalisation and validation split from the checkpoint, so it uses exactly the preprocessing the model was trained with. `plot_trefoil.py` solves the trefoil with the LBM, which takes a minute or two on a CPU.
-
----
-
-## Results
-
-Trained for 1000 epochs with `WALL_FRAC=0.5`. The test set is 200 new convex shapes from the same distribution, generated with a different seed and never used during training or model selection:
-
-| Relative $L^2$ (mean over shapes) | $u_x$ | $u_y$ | $p$ |
+| Relative $L^2$ (test set, mean over shapes) | $u_x$ | $u_y$ | $p$ |
 |---|---|---|---|
-| Test, all fluid cells | 0.011 | 0.034 | 0.013 |
-| Test, wall band ($\|\text{sdf}\| < 0.3\,r_0$) | 0.071 | 0.091 | 0.040 |
-| Validation, all fluid cells | 0.010 | 0.033 | 0.014 |
-| Validation, wall band | 0.067 | 0.089 | 0.041 |
+| All fluid cells | 0.011 | 0.034 | 0.013 |
+| Wall band ($\|\text{sdf}\| < 0.3\,r_0$) | 0.071 | 0.091 | 0.040 |
 
-Test error is close to validation error, so choosing the checkpoint by validation error did not overfit the validation shapes.
-
-$u_y$ has the highest relative error mostly because it is close to zero over most of the domain. The wall band is harsher still, because no-slip drives the velocity towards zero there.
-
-![Validation error during training](docs/figures/training_curve.png)
-
-The predicted fields for a typical validation shape (median error) match the LBM closely. What error remains is concentrated in a thin layer at the body surface:
-
-![Median validation shape](docs/figures/median_validation_shape.png)
-
-Error grows steadily as shapes become less convex, even within the training distribution (test set shown; the trend is somewhat stronger on the validation set, with Spearman $\rho$ of −0.60, −0.70 and −0.61):
-
-![Error vs convexity margin](docs/figures/error_vs_convexity.png)
-
-On a non-convex trefoil (convexity margin −2.86, far below the training minimum of −0.2), the model still gets the overall flow right: the wake, the acceleration around the body, and the stagnation pressure. But it smooths over the concave notches, and the error is about 4–5× the test-set median (`ux` 0.048, `uy` 0.154, `p` 0.052):
+- **In distribution**, error is small and concentrated in a thin layer at the body surface, and grows steadily as shapes become less convex. → [Results](docs/results.md)
+- **Non-convex trefoil:** the overall flow is right, but the concave notches are smoothed over, giving 4–5× the test-set median error. → [Results](docs/results.md)
+- **Lobed shapes:** even when fully convex, they are 1.3–1.4× worse than training-family shapes at the same convexity margin. Error grows with lobe amplitude; k=3 lobes are 1.5–2× easier than k=4 and k=5, which behave alike. → [OOD: lobed shapes](docs/ood-lobed.md)
+- **Sharp corners:** error falls steadily with the number of polygon sides; triangles are 9–18× worse than the test set, octagons are close to it except for pressure. → [OOD: sharp corners](docs/ood-polygon.md)
+- **Distance to the training set** predicts error across all sets: polygons with 4–8 sides fall on a line fitted to the convex and lobed shapes. Pressure is 1.5–1.6× worse than distance predicts on both OOD sets, and triangles' error levels off far below the extrapolated line. → [Error vs distance](docs/ood-distance.md)
 
 ![Non-convex trefoil](docs/figures/nonconvex_trefoil.png)
+
+---
+
+## Documentation
+
+| Page | Contents |
+|---|---|
+| [Background](docs/background.md) | Operator learning, the antiderivative validation case and the flow operator |
+| [Data generation](docs/data.md) | Gaussian random functions, convex shape sampling, the LBM solver |
+| [Model and training](docs/training.md) | DeepONet architecture, training setup, checkpoints |
+| [In-distribution results](docs/results.md) | Test/validation errors, error vs convexity, trefoil, evaluation commands |
+| [OOD: lobed shapes](docs/ood-lobed.md) | Family-shift offset and amplitude as the OOD axis |
+| [OOD: sharp corners](docs/ood-polygon.md) | Regular polygons, error vs side count, where the corner error sits |
+| [Error vs distance](docs/ood-distance.md) | Nearest-training-shape distance as a shared predictor of OOD error |
+
+---
+
+## Quickstart
+
+```bash
+uv run python scripts/generate_dataset.py                                   # -> data/train_convex.npz
+EPOCHS=1000 WALL_FRAC=0.5 uv run python src/train.py                        # -> checkpoints/best.pt
+uv run python scripts/generate_dataset.py --seed 1 --n-shapes 200 --out test_convex
+uv run python scripts/evaluate.py checkpoints/best.pt test_convex           # -> data/test_convex_eval.csv
+```
 
 ---
 
@@ -165,6 +65,9 @@ scripts/generate_dataset.py   shape sampling + LBM solves -> data/
 scripts/evaluate.py           per-shape errors of a checkpoint -> CSV
 scripts/plot_convexity.py     error vs convexity figure from an evaluate CSV
 scripts/plot_trefoil.py       DeepONet vs LBM on a non-convex trefoil
+scripts/plot_polygon.py       error vs polygon side count
+scripts/plot_polygon_fields.py  DeepONet vs LBM on the median polygon per side count
+scripts/plot_distance.py      error vs distance to the nearest training shape
 src/grf.py                    Gaussian random function sampling
 src/geometry.py               shape sampling, masks, SDF, convexity test
 src/solvers/lbm.py            batched JAX lattice Boltzmann solver
@@ -172,4 +75,5 @@ src/model.py                  DeepONet
 src/data.py                   crop, preprocessing and error metric shared by training and evaluation
 src/train.py                  training on the convex-shape dataset
 src/data_generator.py         antiderivative targets
+docs/                         project documentation and figures
 ```
