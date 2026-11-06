@@ -196,4 +196,4 @@ uv run python -m scripts.plot_convexity data/test_convex_eval.csv data/ood_lobed
 | `scripts/` | Dataset generation, training, evaluation, and plotting |
 | `data/` | Generated datasets and evaluation CSVs |
 | `checkpoints/` | Model weights and training history |
-| `docs/` | [Experiment design](docs/experiment_design.md) and figures |
+| `docs/` | Figures |
