@@ -37,7 +37,7 @@ This project asks:
 
 | Page | Contents |
 |---|---|
-| [Background](docs/background.md) | Operator learning, the antiderivative validation case and the flow operator |
+| [Background](docs/background.md) | Operator learning and the flow operator |
 | [Data generation](docs/data.md) | Gaussian random functions, convex shape sampling, the LBM solver |
 | [Model and training](docs/training.md) | DeepONet architecture, training setup, checkpoints |
 | [In-distribution results](docs/results.md) | Test/validation errors, error vs convexity, trefoil, evaluation commands |

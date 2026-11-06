@@ -6,14 +6,6 @@
 
 Standard supervised learning methods map vectors to vectors (a feature vector to a target vector), in other words the method learns a function. Operator learning maps *functions* to *functions*; here, an input function $u$ to the output of some operator applied to it.
 
-## Antiderivative operator (validation case)
-
-$$
-G: u \mapsto s, \qquad s(x) = \int_0^x u(t) \, dt, \qquad s(0) = 0
-$$
-
-This case is deliberately trivial as an application and quadrature solves it to machine precision. It is used to debug the implementation rather than as a difficult learning problem.
-
 ## Steady flow past a convex body
 
 $$

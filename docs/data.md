@@ -4,15 +4,13 @@
 
 ## Gaussian random functions
 
-Input functions are drawn from a Gaussian process on $[0, 1]$ with an RBF kernel
+The boundary perturbation $g(\theta)$ is drawn from a Gaussian process on $[0, 2\pi)$ with a periodic squared-exponential kernel
 
 $$
-k(x, x') = \exp\left(-\frac{(x - x')^2}{2\ell^2}\right)
+k(\theta, \theta') = \exp\left(-\frac{2\sin^2\left((\theta - \theta')/2\right)}{\ell^2}\right)
 $$
 
-This uses a Cholesky factorisation to transform a random sample $z$ into $u \sim N(0, K)$.
-
-For the antiderivative, each $u$ is sampled on a fine grid and integrated using the cumulative trapezium rule.
+This uses a Cholesky factorisation to transform a random sample $z$ into $g \sim N(0, K)$.
 
 ## Convex shapes
 
