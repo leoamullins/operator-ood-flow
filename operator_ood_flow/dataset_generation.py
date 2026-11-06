@@ -1,12 +1,7 @@
-import importlib.metadata
 import json
-import platform
-import subprocess
 from dataclasses import asdict, dataclass, field, fields
-from datetime import datetime, timezone
 from pathlib import Path
 
-import jax
 import numpy as np
 
 from .geometry import (
@@ -27,28 +22,7 @@ SAMPLERS = {
     "lobed": sample_lobed_shapes,
     "polygon": sample_polygon_shapes,
 }
-ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_PATH = ROOT / "data"
-
-
-def provenance():
-    """Return the code version, environment, and time needed to trace how a dataset was made."""
-
-    def git(*args):
-        return subprocess.run(
-            ["git", *args], cwd=ROOT, capture_output=True, text=True
-        ).stdout.strip()
-
-    return {
-        "git_commit": git("rev-parse", "HEAD"),
-        "git_dirty": bool(git("status", "--porcelain", "--untracked-files=no")),
-        "python": platform.python_version(),
-        "packages": {
-            name: importlib.metadata.version(name) for name in ("jax", "numpy", "scipy")
-        },
-        "jax_backend": jax.default_backend(),
-        "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    }
+DEFAULT_PATH = Path(__file__).resolve().parent.parent / "data"
 
 
 @dataclass
@@ -124,12 +98,11 @@ class Generator:
         return [np.concatenate(a) for a in (ux, uy, p, conv)]
 
     def save(self, out, data_dir, **arrays):
-        """Write compressed arrays and a JSON sidecar with settings, saved count, and provenance."""
+        """Write compressed arrays and a JSON sidecar with settings and the saved count."""
         data_dir.mkdir(exist_ok=True)
         np.savez_compressed(data_dir / f"{out}.npz", **arrays)
-        meta = {**self.to_dict(), "n": len(arrays["ux"]), "provenance": provenance()}
         with open(data_dir / f"{out}.json", "w") as f:
-            json.dump(meta, f, indent=2)
+            json.dump({**self.to_dict(), "n": len(arrays["ux"])}, f, indent=2)
 
     def run(self, out, data_dir=DEFAULT_PATH):
         """Sample obstacles, solve their flows, and save converged cases with SDFs."""

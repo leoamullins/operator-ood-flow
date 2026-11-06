@@ -34,7 +34,7 @@ uv run python -m scripts.generate_dataset
 
 Settings are passed as flags (`--sampler`, `--n-shapes`, `--seed`, `--scale`, ...), or as a JSON file of `Generator` fields with `--config`, in which case the output is named after that file.
 
-This writes `data/train_convex.npz` (masks, SDFs, $u_x$, $u_y$, $p$, radii, convexity margins, and per-shape sampler parameters such as polygon `sides`) and `data/train_convex.json`. The JSON holds the full generation settings, the grid size, $r_0$ and centre, and a `provenance` block: git commit (and whether the tree had uncommitted changes), Python and package versions, JAX backend and creation time. Passing a saved dataset `.json` back to `--config` regenerates the same shapes.
+This writes `data/train_convex.npz` (masks, SDFs, $u_x$, $u_y$, $p$, radii, convexity margins, and per-shape sampler parameters such as polygon `sides`) and `data/train_convex.json`. The JSON holds the full generation settings, the grid size, $r_0$ and centre. Passing a saved dataset `.json` back to `--config` regenerates the same shapes.
 
 The lattice scale $s$ (`--scale`, default 1.5) sets $r_0 = 10s$ cells and a $100s \times 400s$ grid, so the default is $150 \times 600$ with $r_0 = 15$. A given seed draws the same shapes at every $s$, so datasets at different resolutions are directly comparable.
 
