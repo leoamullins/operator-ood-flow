@@ -42,11 +42,11 @@ How far each polygon is from the training shapes, and whether that explains thes
 ## Reproducing
 
 ```bash
-uv run python scripts/generate_dataset.py --sampler polygon --n-shapes 300 --seed 3 --out ood_polygon
-uv run python scripts/evaluate.py checkpoints/best.pt ood_polygon                     # -> data/ood_polygon_eval.csv
-uv run python scripts/plot_polygon.py --ref data/test_convex_eval.csv                 # -> docs/figures/ood_polygon.png
-uv run python scripts/plot_polygon.py --ref data/test_convex_eval.csv --wall          # -> docs/figures/ood_polygon_wall.png
-uv run python scripts/plot_polygon_fields.py checkpoints/best.pt                      # -> docs/figures/ood_polygon_fields_n{3,4,6}.png
+uv run python -m scripts.generate_dataset --sampler polygon --n-shapes 300 --seed 3 --out ood_polygon
+uv run python -m scripts.evaluate checkpoints/best.pt ood_polygon                     # -> data/ood_polygon_eval.csv
+uv run python -m scripts.plot_polygon --ref data/test_convex_eval.csv                 # -> docs/figures/ood_polygon.png
+uv run python -m scripts.plot_polygon --ref data/test_convex_eval.csv --wall          # -> docs/figures/ood_polygon_wall.png
+uv run python -m scripts.plot_polygon_fields checkpoints/best.pt                      # -> docs/figures/ood_polygon_fields_n{3,4,6}.png
 ```
 
 `plot_polygon.py` also prints the mean and median per side count and the Spearman correlations.

@@ -1,20 +1,17 @@
 import json
 import os
-import sys
+import time
 from pathlib import Path
 from typing import Any
-
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT / "src"))
-
-import time
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset
 
-from data import EVAL_BAND, downsample_sdf, load_data, rel_l2
-from model import DeepONet
+from operator_ood_flow.preprocessing import EVAL_BAND, downsample_sdf, load_data, rel_l2
+from operator_ood_flow.model import DeepONet
+
+ROOT = Path(__file__).resolve().parent.parent
 
 DATA = ROOT / "data" / "train_convex"
 OUT = ROOT / "checkpoints"

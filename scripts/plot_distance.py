@@ -1,18 +1,15 @@
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT / "src"))
-
 import argparse
 import json
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from scipy.stats import spearmanr
 
-from data import crop, downsample_sdf
+from operator_ood_flow.preprocessing import crop, downsample_sdf
+
+ROOT = Path(__file__).resolve().parent.parent
 
 NAMES = ["$u_x$", "$u_y$", "$p$"]
 COLS = ["ux", "uy", "p"]

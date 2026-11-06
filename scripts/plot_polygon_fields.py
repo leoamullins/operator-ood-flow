@@ -1,19 +1,15 @@
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT / "src"))
-sys.path.append(str(ROOT / "scripts"))
-
 import argparse
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from data import downsample_sdf, load_data
-from model import DeepONet
-from plot_trefoil import plot_fields
+from operator_ood_flow.model import DeepONet
+from operator_ood_flow.preprocessing import downsample_sdf, load_data
+from scripts.plot_trefoil import plot_fields
+
+ROOT = Path(__file__).resolve().parent.parent
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="DeepONet vs LBM on the median polygon of each side count.")

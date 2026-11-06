@@ -30,6 +30,7 @@ CS2 = 1 / 3  # lattice speed of sound squared
 
 
 def macroscopic(f):
+    """Recover density and velocity from the D2Q9 populations."""
     rho = f.sum(axis=0)
     momentum = jnp.einsum("id,iyx->dyx", C, f)
     u = momentum / rho
@@ -37,33 +38,38 @@ def macroscopic(f):
 
 
 def equilibrium(rho, u):
+    """Compute equilibrium D2Q9 populations for the given density and velocity."""
     cu = jnp.einsum("id,dyx->iyx", C, u)
     usq = (u**2).sum(0)
     return W[:, None, None] * rho * (1 + 3 * cu + 4.5 * cu**2 - 1.5 * usq)
 
 
 def collide(f, feq, tau):
+    """Relax populations towards equilibrium with relaxation time tau."""
     return f - (f - feq) / tau
 
 
 def stream(f):
+    """Shift each population along its lattice direction with periodic wraparound."""
     return jnp.stack(
         [jnp.roll(f[i], shift=(cy, cx), axis=(0, 1)) for i, (cx, cy) in enumerate(C_NP)]
     )
 
 
 def cylinder_mask(Ny, Nx, cx, cy, r):
+    """Return a lattice mask with True inside the circular obstacle."""
     y, x = np.mgrid[0:Ny, 0:Nx]
     return (x - cx) ** 2 + (y - cy) ** 2 <= r**2
 
 
 def step(f, tau, mask, u_in):
+    """Advance one LBM step with inlet, outlet, and solid bounce-back conditions."""
     f = stream(f)
     f = f.at[:, :, -1].set(f[:, :, -2])  # outlet
     bounced = f[OPP]  # reversed populations
 
     rho, u = macroscopic(f)
-    f = f - (f - equilibrium(rho, u)) / tau  # collide
+    f = collide(f, equilibrium(rho, u), tau)
 
     Ny = f.shape[1]
     u_inlet = jnp.zeros((2, Ny, 1)).at[0].set(u_in)
@@ -73,6 +79,7 @@ def step(f, tau, mask, u_in):
 
 
 def run_chunk(f, tau, mask, u_in, n):
+    """Advance one obstacle flow by n steps using a JAX loop."""
     return lax.fori_loop(0, n, lambda _, f: step(f, tau, mask, u_in), f)
 
 
@@ -86,8 +93,10 @@ equil_batched = jax.jit(jax.vmap(equilibrium))
 def solve_batch(
     masks, D, Re, u_in=0.1, max_steps=60_000, chunk=2_000, tol=1e-5, kick=False
 ):
-    """masks: NumPy bool (B, Ny, Nx). Returns NumPy rho (B, Ny, Nx), u (B, 2, Ny, Nx),
-    converged (B,), steps taken."""
+    """Advance solid masks of shape (B, Ny, Nx) in chunks until convergence or the step limit.
+
+    Return density (B, Ny, Nx), velocity (B, 2, Ny, Nx), a flag per
+    shape for maximum velocity change below tol, and the steps taken."""
     assert max_steps >= chunk, "max_steps must cover at least one chunk"
     B, Ny, Nx = masks.shape
     tau = 3 * (u_in * D / Re) + 0.5

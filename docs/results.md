@@ -34,11 +34,11 @@ On a non-convex trefoil (convexity margin −2.86, far below the training minimu
 Generate the test set, compute per-shape errors, and rebuild the figures:
 
 ```bash
-uv run python scripts/generate_dataset.py --seed 1 --n-shapes 200 --out test_convex
-uv run python scripts/evaluate.py checkpoints/best.pt test_convex               # -> data/test_convex_eval.csv
-uv run python scripts/evaluate.py checkpoints/best.pt train_convex --val        # validation shapes only
-uv run python scripts/plot_convexity.py data/test_convex_eval.csv               # -> docs/figures/error_vs_convexity.png
-uv run python scripts/plot_trefoil.py checkpoints/best.pt                       # -> docs/figures/nonconvex_trefoil.png
+uv run python -m scripts.generate_dataset --seed 1 --n-shapes 200 --out test_convex
+uv run python -m scripts.evaluate checkpoints/best.pt test_convex               # -> data/test_convex_eval.csv
+uv run python -m scripts.evaluate checkpoints/best.pt train_convex --val        # validation shapes only
+uv run python -m scripts.plot_convexity data/test_convex_eval.csv --out docs/figures/error_vs_convexity.png
+uv run python -m scripts.plot_trefoil checkpoints/best.pt                       # -> docs/figures/nonconvex_trefoil.png
 ```
 
 `evaluate.py` writes one row per shape: index, convexity margin, and relative $L^2$ for $u_x$, $u_y$ and $p$ over all fluid cells and over the wall band. It takes the SDF resolution, normalisation and validation split from the checkpoint, so it uses exactly the preprocessing the model was trained with. `plot_trefoil.py` solves the trefoil with the LBM, which takes a minute or two on a CPU.

@@ -21,12 +21,12 @@ Because k=5 is no worse than k=4, a resolution bottleneck is unlikely to be the 
 ## Reproducing
 
 ```bash
-uv run python scripts/generate_dataset.py --sampler lobed --amp 0.03 0.2 \
+uv run python -m scripts.generate_dataset --sampler lobed --amp 0.03 0.2 \
     --n-shapes 300 --seed 2 --out ood_lobed
-uv run python scripts/evaluate.py checkpoints/best.pt ood_lobed
-uv run python scripts/plot_convexity.py data/test_convex_eval.csv data/ood_lobed_eval.csv \
+uv run python -m scripts.evaluate checkpoints/best.pt ood_lobed
+uv run python -m scripts.plot_convexity data/test_convex_eval.csv data/ood_lobed_eval.csv \
     --out docs/figures/ood_concavity.png
-uv run python scripts/plot_convexity.py data/test_convex_eval.csv data/ood_lobed_eval.csv \
+uv run python -m scripts.plot_convexity data/test_convex_eval.csv data/ood_lobed_eval.csv \
     --x amp --out docs/figures/ood_amplitude.png
 ```
 

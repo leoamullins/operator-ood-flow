@@ -149,5 +149,6 @@ if __name__ == "__main__":
         ax.legend(fontsize=7)
     axes[0].set_ylabel(f"relative $L^2$ / {ref_label} median (margin 0–0.8)")
 
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.out, dpi=100)
     print(f"saved {args.out}")

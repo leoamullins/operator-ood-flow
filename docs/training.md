@@ -4,7 +4,7 @@
 
 ## Model
 
-[src/model.py](../src/model.py) implements a DeepONet with three outputs:
+[model.py](../operator_ood_flow/model.py) implements a DeepONet with three outputs:
 
 - **Branch net:** an MLP on the SDF, downsampled to $32 \times 64$ and flattened.
 - **Trunk net:** an MLP on the query coordinates $(x, y)$, in units of $r_0$ relative to the body centre.
@@ -13,7 +13,7 @@ The output for each field is the dot product of the branch and trunk features, p
 
 ## Training
 
-[src/train.py](../src/train.py) works as follows:
+[train.py](../scripts/train.py) works as follows:
 
 - Crops the domain to $[-2r_0, 8r_0] \times [-2.5r_0, 2.5r_0]$ around the body.
 - Measures pressure relative to the upstream edge.
@@ -24,7 +24,7 @@ The output for each field is the dot product of the branch and trunk features, p
 - Every 10 epochs, reports the relative $L^2$ error on the validation set for each field, over all fluid cells and over the wall band ($|\text{sdf}| < 0.3\,r_0$).
 
 ```bash
-EPOCHS=1000 WALL_FRAC=0.5 uv run python src/train.py
+EPOCHS=1000 WALL_FRAC=0.5 uv run python -m scripts.train
 ```
 
 ## Checkpoints

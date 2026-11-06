@@ -32,7 +32,7 @@ The convex test set sits slightly below the line (0.7–0.8×) and has the weake
 Needs the evaluate CSVs from [Results](results.md), [OOD: lobed shapes](ood-lobed.md) and [OOD: sharp corners](ood-polygon.md):
 
 ```bash
-uv run python scripts/plot_distance.py checkpoints/best.pt \
+uv run python -m scripts.plot_distance checkpoints/best.pt \
     data/test_convex_eval.csv data/ood_lobed_eval.csv data/ood_polygon_eval.csv   # -> docs/figures/error_vs_distance.png
 ```
 

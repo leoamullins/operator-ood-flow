@@ -3,7 +3,10 @@ from torch import nn
 
 
 class DeepONet(nn.Module):
+    """Map obstacle SDFs to flow fields at shared query coordinates."""
+
     def __init__(self, m, p=40, n_out=3, width=40, coord_dim=2, zero_at_origin=False):
+        """Build branch and trunk networks with p features per output field."""
         super().__init__()
         self.p = p
         self.n_out = n_out
@@ -28,6 +31,7 @@ class DeepONet(nn.Module):
         self.b0 = nn.Parameter(torch.zeros(self.n_out))
 
     def forward(self, sdf, xy):
+        """Combine SDF and coordinate features to predict each field at each query point."""
         b = self.branch(sdf)
         t = self.trunk(xy)
 

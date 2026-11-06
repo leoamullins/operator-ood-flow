@@ -4,15 +4,13 @@
 
 ## Gaussian random functions
 
-Input functions are drawn from a Gaussian process on $[0, 1]$ with an RBF kernel
+The boundary perturbation $g(\theta)$ is drawn from a Gaussian process on $[0, 2\pi)$ with a periodic squared-exponential kernel
 
 $$
-k(x, x') = \exp\left(-\frac{(x - x')^2}{2\ell^2}\right)
+k(\theta, \theta') = \exp\left(-\frac{2\sin^2\left((\theta - \theta')/2\right)}{\ell^2}\right)
 $$
 
-This uses a Cholesky factorisation to transform a random sample $z$ into $u \sim N(0, K)$.
-
-For the antiderivative, each $u$ is sampled on a fine grid and integrated using the cumulative trapezium rule.
+This uses a Cholesky factorisation to transform a random sample $z$ into $g \sim N(0, K)$.
 
 ## Convex shapes
 
@@ -26,12 +24,12 @@ Here $g$ is a periodic Gaussian random function and $a_1, a_2, \phi_1, \phi_2$ a
 
 ## Flow solver
 
-Each shape is solved with a D2Q9 lattice Boltzmann solver ([src/solvers/lbm.py](../src/solvers/lbm.py)), written in JAX and batched across shapes. The body uses bounce-back walls. The solver runs until the field stops changing (tolerance $10^{-5}$), and shapes that don't converge are dropped.
+Each shape is solved with a D2Q9 lattice Boltzmann solver ([lbm.py](../operator_ood_flow/lbm.py)), written in JAX and batched across shapes. The body uses bounce-back walls. The solver runs until the field stops changing (tolerance $10^{-5}$), and shapes that don't converge are dropped.
 
 ## Generating the dataset
 
 ```bash
-uv run python scripts/generate_dataset.py
+uv run python -m scripts.generate_dataset
 ```
 
 This writes `data/train_convex.npz` (masks, SDFs, $u_x$, $u_y$, $p$, radii, convexity margins) and `data/train_convex.json` (grid size, $r_0$, centre, $Re$ and the shape-sampling settings). The default grid is $150 \times 600$ with $r_0 = 15$.

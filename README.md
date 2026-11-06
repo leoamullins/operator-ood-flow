@@ -1,4 +1,4 @@
-# Operator Learning
+# Operator OOD Flow
 
 **Status:** In progress. A DeepONet trained on 1200 convex shapes reaches 1–3% relative error in distribution. Out-of-distribution evaluation covers a non-convex trefoil, lobed shapes and regular polygons, and most of the OOD error is explained by distance to the nearest training shape. Multiple obstacles are still to do.
 
@@ -37,7 +37,7 @@ This project asks:
 
 | Page | Contents |
 |---|---|
-| [Background](docs/background.md) | Operator learning, the antiderivative validation case and the flow operator |
+| [Background](docs/background.md) | Operator learning and the flow operator |
 | [Data generation](docs/data.md) | Gaussian random functions, convex shape sampling, the LBM solver |
 | [Model and training](docs/training.md) | DeepONet architecture, training setup, checkpoints |
 | [In-distribution results](docs/results.md) | Test/validation errors, error vs convexity, trefoil, evaluation commands |
@@ -49,31 +49,23 @@ This project asks:
 
 ## Quickstart
 
+Set up the Python 3.13 environment with `uv sync --locked`, then run from the project root:
+
 ```bash
-uv run python scripts/generate_dataset.py                                   # -> data/train_convex.npz
-EPOCHS=1000 WALL_FRAC=0.5 uv run python src/train.py                        # -> checkpoints/best.pt
-uv run python scripts/generate_dataset.py --seed 1 --n-shapes 200 --out test_convex
-uv run python scripts/evaluate.py checkpoints/best.pt test_convex           # -> data/test_convex_eval.csv
+uv run python -m scripts.generate_dataset                                    # -> data/train_convex.npz
+EPOCHS=1000 WALL_FRAC=0.5 uv run python -m scripts.train                     # -> checkpoints/best.pt
+uv run python -m scripts.generate_dataset --seed 1 --n-shapes 200 --out test_convex
+uv run python -m scripts.evaluate checkpoints/best.pt test_convex            # -> data/test_convex_eval.csv
 ```
 
 ---
 
 ## Layout
 
-```text
-scripts/generate_dataset.py   shape sampling + LBM solves -> data/
-scripts/evaluate.py           per-shape errors of a checkpoint -> CSV
-scripts/plot_convexity.py     error vs convexity figure from an evaluate CSV
-scripts/plot_trefoil.py       DeepONet vs LBM on a non-convex trefoil
-scripts/plot_polygon.py       error vs polygon side count
-scripts/plot_polygon_fields.py  DeepONet vs LBM on the median polygon per side count
-scripts/plot_distance.py      error vs distance to the nearest training shape
-src/grf.py                    Gaussian random function sampling
-src/geometry.py               shape sampling, masks, SDF, convexity test
-src/solvers/lbm.py            batched JAX lattice Boltzmann solver
-src/model.py                  DeepONet
-src/data.py                   crop, preprocessing and error metric shared by training and evaluation
-src/train.py                  training on the convex-shape dataset
-src/data_generator.py         antiderivative targets
-docs/                         project documentation and figures
-```
+| Path | Contents |
+|---|---|
+| `operator_ood_flow/` | Geometry, Gaussian random fields, LBM solver, DeepONet, and data preparation |
+| `scripts/` | Dataset generation, training, evaluation, and plotting |
+| `data/` | Generated datasets and evaluation CSVs |
+| `checkpoints/` | Model weights and training history |
+| `docs/` | Project documentation and figures |

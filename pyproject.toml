@@ -1,7 +1,7 @@
 [project]
-name = "deeponet-operator-learning"
+name = "operator-ood-flow"
 version = "0.1.0"
-description = "Add your description here"
+description = "DeepONet experiments on flow past out-of-distribution obstacle shapes"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
