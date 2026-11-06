@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 
 from operator_ood_flow.dataset_generation import SAMPLERS, Generator
 
@@ -11,9 +12,15 @@ if __name__ == "__main__":
     parser.add_argument("--batch", type=int, default=Generator.batch)
     parser.add_argument("--seed", type=int, default=Generator.seed)
     parser.add_argument(
-        "--config", help="rebuild from a saved dataset .json (ignores other flags)"
+        "--scale", type=float, default=Generator.s, help="lattice scale s: r0 = 10 s cells"
     )
-    parser.add_argument("--out", help="name in data/ (default: train_<sampler>)")
+    parser.add_argument(
+        "--config",
+        help="build from a dataset config or saved dataset .json (ignores other flags)",
+    )
+    parser.add_argument(
+        "--out", help="name in data/ (default: config file name, else train_<sampler>)"
+    )
     args = parser.parse_args()
 
     if args.config:
@@ -29,7 +36,9 @@ if __name__ == "__main__":
             n_shapes=args.n_shapes,
             batch=args.batch,
             seed=args.seed,
+            s=args.scale,
             shape_kw=shape_kw,
         )
 
-    gen.run(args.out or f"train_{gen.sampler}")
+    default_out = Path(args.config).stem if args.config else f"train_{gen.sampler}"
+    gen.run(args.out or default_out)
