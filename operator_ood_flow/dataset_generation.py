@@ -4,12 +4,23 @@ from pathlib import Path
 
 import numpy as np
 
-from .geometry import sample_convex_shapes, sample_lobed_shapes, signed_distance
+from .geometry import (
+    sample_convex_shapes,
+    sample_lobed_shapes,
+    sample_polygon_shapes,
+    signed_distance,
+)
 from .lbm import solve_batch
 
 DEFAULT_SHAPE_KW = {
     "convex": {"eps": 0.08, "ell": 1.0, "a1_max": 0.3, "a2_max": 0.18, "tol": -0.2},
     "lobed": {"amp": [0.1, 0.4]},
+    "polygon": {"sides": [3, 4, 5, 6, 7, 8]},
+}
+SAMPLERS = {
+    "convex": sample_convex_shapes,
+    "lobed": sample_lobed_shapes,
+    "polygon": sample_polygon_shapes,
 }
 DEFAULT_PATH = Path(__file__).resolve().parent.parent / "data"
 
@@ -55,10 +66,9 @@ class Generator:
         return cls(**{k.name: d[k.name] for k in fields(cls) if k.name in d})
 
     def sample(self):
-        """Return solid masks, polar radii, and convexity margins from the configured seed."""
+        """Return masks, polar radii, convexity margins, and per-shape sampler parameters."""
         rng = np.random.default_rng(self.seed)
-        fn = sample_convex_shapes if self.sampler == "convex" else sample_lobed_shapes
-        return fn(
+        out = SAMPLERS[self.sampler](
             self.n_shapes,
             self.Ny,
             self.Nx,
@@ -68,6 +78,7 @@ class Generator:
             rng=rng,
             **self.shape_kw,
         )
+        return out if len(out) == 4 else (*out, {})
 
     def solve(self, masks):
         """Solve masks in batches and return ux, uy, pressure, and convergence flags."""
@@ -95,7 +106,7 @@ class Generator:
 
     def run(self, out, data_dir=DEFAULT_PATH):
         """Sample obstacles, solve their flows, and save converged cases with SDFs."""
-        masks, radii, margins = self.sample()
+        masks, radii, margins, params = self.sample()
         ux, uy, p, keep = self.solve(masks)
         print(f"{(~keep).sum()} of {len(keep)} shapes did not converge, dropping them")
         sdf = np.array([signed_distance(m) for m in masks[keep]]).astype(np.float32)
@@ -109,4 +120,5 @@ class Generator:
             p=p[keep],
             radii=radii[keep],
             margins=margins[keep],
+            **{name: v[keep] for name, v in params.items()},
         )
