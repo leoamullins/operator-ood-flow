@@ -1,11 +1,6 @@
-import sys
-from pathlib import Path
-
-sys.path.append(str(Path(__file__).resolve().parent.parent / "src"))
-
 import argparse
 
-from generator import Generator
+from operator_ood_flow.dataset_generation import Generator
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="generate a flow-past-a-body dataset.")

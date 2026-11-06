@@ -1,17 +1,14 @@
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT / "src"))
-
 import argparse
 import csv
+from pathlib import Path
 
 import numpy as np
 import torch
 
-from data import EVAL_BAND, downsample_sdf, load_data, rel_l2
-from model import DeepONet
+from operator_ood_flow.preprocessing import EVAL_BAND, downsample_sdf, load_data, rel_l2
+from operator_ood_flow.model import DeepONet
+
+ROOT = Path(__file__).resolve().parent.parent
 
 BATCH = 32  # shapes per forward pass
 

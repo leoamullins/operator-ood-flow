@@ -10,3 +10,6 @@ notebooks/
 checkpoints/
 CLAUDE.md
 *.code-workspace
+AGENTS.md
+*.md
+!README.md

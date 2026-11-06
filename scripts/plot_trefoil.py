@@ -1,22 +1,19 @@
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT / "src"))
-
 import argparse
 import json
 import time
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from matplotlib.colors import TwoSlopeNorm
 
-from data import crop, crop_fields, downsample_sdf, grid_coords
-from geometry import THETA, is_convex, shape_mask, signed_distance
-from model import DeepONet
-from solvers.lbm import solve_batch
+from operator_ood_flow.preprocessing import crop, crop_fields, downsample_sdf, grid_coords
+from operator_ood_flow.geometry import THETA, is_convex, shape_mask, signed_distance
+from operator_ood_flow.model import DeepONet
+from operator_ood_flow.lbm import solve_batch
+
+ROOT = Path(__file__).resolve().parent.parent
 
 # trefoil: r = r0 (1 + a cos k(theta - phi)); k >= 3 with a large enough is non-convex
 K_LOBES, AMP, PHI = 3, 0.3, 0.0
@@ -110,5 +107,6 @@ if __name__ == "__main__":
 
     extent = [coords[:, 0].min(), coords[:, 0].max(), coords[:, 1].min(), coords[:, 1].max()]
     fig = plot_fields(true, pred, solid, extent, f"non-convex shape, margin {margin[0]:.2f}", rel)
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.out, dpi=100)
     print(f"saved {args.out}")

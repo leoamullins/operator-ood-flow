@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from geometry import shape_mask, signed_distance
+from .geometry import shape_mask, signed_distance
 
 EVAL_BAND = 0.3  # fixed band for the wall validation error, comparable across runs
 
@@ -33,6 +33,7 @@ def grid_coords(meta):
 
 
 def load_data(path):
+    """Load cropped SDFs, solid masks, flow fields, and query points from a dataset stem."""
     with open(str(path) + ".json") as f:
         meta = json.load(f)
 
@@ -45,7 +46,7 @@ def load_data(path):
 
 
 def downsample_sdf(sdf, res):
-    """(N, H, W) SDF -> (N, res[0] * res[1]) branch input."""
+    """Resize cropped SDFs to res and flatten each one for the branch network."""
     sdf_t = torch.tensor(sdf, dtype=torch.float32).unsqueeze(1)  # (N, 1, H, W)
     return F.interpolate(sdf_t, size=res, mode="bilinear", align_corners=False).flatten(
         1
@@ -61,7 +62,7 @@ def rel_l2(pred, true, mask):
 
 
 def branch_sdf(radii, r0, res, extent):
-    """rasterise sdf/r0 directly from radii onto a res = (H,W) grid"""
+    """Rasterise radii directly on the branch grid and flatten SDFs in units of r0."""
     H, W = res
     x0, x1, y0, y1 = extent
     h = (x1 - x0) * r0 / W

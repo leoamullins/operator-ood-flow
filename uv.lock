@@ -301,7 +301,7 @@ wheels = [
 ]
 
 [[package]]
-name = "deeponet-operator-learning"
+name = "operator-ood-flow"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

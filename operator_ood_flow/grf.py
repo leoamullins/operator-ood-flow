@@ -3,6 +3,7 @@ from scipy.linalg import cholesky
 
 
 def build_cholesky_factor(x, ell, jitter=1e-8, periodic=False):
+    """Factor the squared-exponential covariance on x, using a 2π period if requested."""
     diff = x[:, None] - x[None, :]  # pairwise differences, (n, n)
 
     if periodic:
@@ -15,5 +16,6 @@ def build_cholesky_factor(x, ell, jitter=1e-8, periodic=False):
 
 
 def sample_functions(L, n_functions, rng):
+    """Draw zero-mean Gaussian functions with covariance L @ L.T, one per row."""
     z = rng.standard_normal((L.shape[0], n_functions))
     return (L @ z).T

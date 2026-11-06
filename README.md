@@ -1,4 +1,4 @@
-# Operator Learning
+# Operator OOD Flow
 
 **Status:** In progress. A DeepONet trained on 1200 convex shapes reaches 1–3% relative error in distribution. Out-of-distribution evaluation has started with a first non-convex shape. Sharp corners and multiple obstacles are still to do.
 
@@ -68,12 +68,12 @@ Here $g$ is a periodic Gaussian random function and $a_1, a_2, \phi_1, \phi_2$ a
 
 ### Flow solver
 
-Each shape is solved with a D2Q9 lattice Boltzmann solver ([src/solvers/lbm.py](src/solvers/lbm.py)), written in JAX and batched across shapes. The body uses bounce-back walls. The solver runs until the field stops changing (tolerance $10^{-5}$), and shapes that don't converge are dropped.
+Each shape is solved with a D2Q9 lattice Boltzmann solver ([lbm.py](operator_ood_flow/lbm.py)), written in JAX and batched across shapes. The body uses bounce-back walls. The solver runs until the field stops changing (tolerance $10^{-5}$), and shapes that don't converge are dropped.
 
-Generate the dataset with:
+Run the commands below from this project directory. Set up the Python 3.13 environment with `uv sync --locked`. Generate the dataset with:
 
 ```bash
-uv run python scripts/generate_dataset.py
+uv run python -m scripts.generate_dataset
 ```
 
 This writes `data/train_convex.npz` (masks, SDFs, $u_x$, $u_y$, $p$, radii, convexity margins) and `data/train_convex.json` (grid size, $r_0$, centre, $Re$ and the shape-sampling settings). The default grid is $150 \times 600$ with $r_0 = 15$.
@@ -82,14 +82,14 @@ This writes `data/train_convex.npz` (masks, SDFs, $u_x$, $u_y$, $p$, radii, conv
 
 ## Model and Training
 
-[src/model.py](src/model.py) implements a DeepONet with three outputs:
+[model.py](operator_ood_flow/model.py) implements a DeepONet with three outputs:
 
 - **Branch net:** an MLP on the SDF, downsampled to $32 \times 64$ and flattened.
 - **Trunk net:** an MLP on the query coordinates $(x, y)$, in units of $r_0$ relative to the body centre.
 
 The output for each field is the dot product of the branch and trunk features, plus a bias.
 
-[src/train.py](src/train.py) works as follows:
+[train.py](scripts/train.py) works as follows:
 
 - Crops the domain to $[-2r_0, 8r_0] \times [-2.5r_0, 2.5r_0]$ around the body.
 - Measures pressure relative to the upstream edge.
@@ -100,7 +100,7 @@ The output for each field is the dot product of the branch and trunk features, p
 - Every 10 epochs, reports the relative $L^2$ error on the validation set for each field, over all fluid cells and over the wall band ($|\text{sdf}| < 0.3\,r_0$).
 
 ```bash
-EPOCHS=1000 WALL_FRAC=0.5 uv run python src/train.py
+EPOCHS=1000 WALL_FRAC=0.5 uv run python -m scripts.train
 ```
 
 The best model is saved to `checkpoints/best.pt`, together with its model config, normalisation stats, data config and train/val split. The loss history goes to `checkpoints/history.json`. To reload the model:
@@ -116,11 +116,11 @@ model.load_state_dict(ckpt["model"])
 Generate the test set, compute per-shape errors, and rebuild the figures:
 
 ```bash
-uv run python scripts/generate_dataset.py --seed 1 --n-shapes 200 --out test_convex
-uv run python scripts/evaluate.py checkpoints/best.pt test_convex               # -> data/test_convex_eval.csv
-uv run python scripts/evaluate.py checkpoints/best.pt train_convex --val        # validation shapes only
-uv run python scripts/plot_convexity.py data/test_convex_eval.csv               # -> docs/figures/error_vs_convexity.png
-uv run python scripts/plot_trefoil.py checkpoints/best.pt                       # -> docs/figures/nonconvex_trefoil.png
+uv run python -m scripts.generate_dataset --seed 1 --n-shapes 200 --out test_convex
+uv run python -m scripts.evaluate checkpoints/best.pt test_convex               # -> data/test_convex_eval.csv
+uv run python -m scripts.evaluate checkpoints/best.pt train_convex --val        # validation shapes only
+uv run python -m scripts.plot_convexity data/test_convex_eval.csv --out docs/figures/error_vs_convexity.png
+uv run python -m scripts.plot_trefoil checkpoints/best.pt                       # -> docs/figures/nonconvex_trefoil.png
 ```
 
 `evaluate.py` writes one row per shape: index, convexity margin, and relative $L^2$ for $u_x$, $u_y$ and $p$ over all fluid cells and over the wall band. It takes the SDF resolution, normalisation and validation split from the checkpoint, so it uses exactly the preprocessing the model was trained with. `plot_trefoil.py` solves the trefoil with the LBM, which takes a minute or two on a CPU.
@@ -177,12 +177,12 @@ The offset is present even at $\text{margin} \approx 0.8$ (near-circular), which
 To reproduce:
 
 ```bash
-uv run python scripts/generate_dataset.py --sampler lobed --amp 0.03 0.2 \
+uv run python -m scripts.generate_dataset --sampler lobed --amp 0.03 0.2 \
     --n-shapes 300 --seed 2 --out ood_lobed
-uv run python scripts/evaluate.py checkpoints/best.pt ood_lobed
-uv run python scripts/plot_convexity.py data/test_convex_eval.csv data/ood_lobed_eval.csv \
+uv run python -m scripts.evaluate checkpoints/best.pt ood_lobed
+uv run python -m scripts.plot_convexity data/test_convex_eval.csv data/ood_lobed_eval.csv \
     --out docs/figures/ood_concavity.png
-uv run python scripts/plot_convexity.py data/test_convex_eval.csv data/ood_lobed_eval.csv \
+uv run python -m scripts.plot_convexity data/test_convex_eval.csv data/ood_lobed_eval.csv \
     --x amp --out docs/figures/ood_amplitude.png
 ```
 
@@ -190,16 +190,10 @@ uv run python scripts/plot_convexity.py data/test_convex_eval.csv data/ood_lobed
 
 ## Layout
 
-```text
-scripts/generate_dataset.py   shape sampling + LBM solves -> data/
-scripts/evaluate.py           per-shape errors of a checkpoint -> CSV
-scripts/plot_convexity.py     error vs convexity figure from an evaluate CSV
-scripts/plot_trefoil.py       DeepONet vs LBM on a non-convex trefoil
-src/grf.py                    Gaussian random function sampling
-src/geometry.py               shape sampling, masks, SDF, convexity test
-src/solvers/lbm.py            batched JAX lattice Boltzmann solver
-src/model.py                  DeepONet
-src/data.py                   crop, preprocessing and error metric shared by training and evaluation
-src/train.py                  training on the convex-shape dataset
-src/data_generator.py         antiderivative targets
-```
+| Path | Contents |
+|---|---|
+| `operator_ood_flow/` | Geometry, Gaussian random fields, LBM solver, DeepONet, and data preparation |
+| `scripts/` | Dataset generation, training, evaluation, and plotting |
+| `data/` | Generated datasets and evaluation CSVs |
+| `checkpoints/` | Model weights and training history |
+| `docs/` | [Experiment design](docs/experiment_design.md) and figures |
