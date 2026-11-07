@@ -9,6 +9,10 @@
 - alignment: cosine similarity <dq, dq_hat> / (|dq| |dq_hat|) between the true velocity
   change dq = q_rho - q_0 and the predicted change dq_hat; 1 = the model responds in
   the right direction, 0 = unrelated, -1 = opposite. NaN at rho = 0 (no change).
+- response_err: relative response error ||dq_hat - dq|| / ||dq||, i.e. how much of the
+  rounding-induced flow change the model misses (0 = exact, 1 = no response at all).
+  Equals sqrt(1 + R^2 - 2 R C) with R = ||dq_hat|| / ||dq|| = pred_change / flow_change
+  and C = alignment. NaN at rho = 0.
 
 The flow and prediction changes use the same fixed corner region as vel_corner_rmse
 (scripts.evaluate.corner_mask). Writes data/eval/<dataset>_rounding.csv, one row per
@@ -60,6 +64,14 @@ def rounding_sensitivity(dataset, seeds=(0, 123, 456, 789, 2026), out=None):
                 out[i] = x @ y / norm
         return out
 
+    def response_error(dq, dq_hat, region):  # ||dq_hat - dq|| / ||dq|| over the region
+        out = np.full(N, np.nan)
+        for i in range(N):
+            x, y = dq[i, region[i]], dq_hat[i, region[i]]
+            if np.linalg.norm(x) > 0:
+                out[i] = np.linalg.norm(y - x) / np.linalg.norm(x)
+        return out
+
     rows = []
     for seed in seeds:
         ckpt = torch.load(
@@ -93,6 +105,9 @@ def rounding_sensitivity(dataset, seeds=(0, 123, 456, 789, 2026), out=None):
             "alignment": cosine(
                 vel_true - vel_true[i0], pred[..., :2] - pred[i0][..., :2], C
             ),
+            "response_err": response_error(
+                vel_true - vel_true[i0], pred[..., :2] - pred[i0][..., :2], C
+            ),
         }))
 
     df = pd.concat(rows, ignore_index=True)
@@ -100,7 +115,9 @@ def rounding_sensitivity(dataset, seeds=(0, 123, 456, 789, 2026), out=None):
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out, index=False)
     print(f"saved {out}")
-    cols = ["sdf_native", "sdf_branch", "flow_change", "pred_change", "alignment"]
+    cols = [
+        "sdf_native", "sdf_branch", "flow_change", "pred_change", "alignment", "response_err"
+    ]
     print(df.groupby(["sides", "rho"])[cols].mean().round(4).to_string())
     return df
 

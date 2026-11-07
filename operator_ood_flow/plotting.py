@@ -119,3 +119,36 @@ def plot_rounding_sensitivity(rounding, evals):
     )
     plt.tight_layout(rect=(0, 0, 1, 0.95))
     plt.show()
+
+
+def plot_response_error(rounding):
+    """
+    Relative response error ||dq_hat - dq|| / ||dq|| vs rounding radius, one curve per
+    side count: how much of the rounding-induced near-corner flow change the model
+    misses. The dashed line at 1 is what predicting no change at all would score.
+    rounding is data/eval/<dataset>_rounding.csv (scripts.rounding_sensitivity); mean
+    over orientations per seed, then over seeds (band = +-1 std across seeds).
+    Example usage in notebooks/plots.ipynb
+    """
+    names = {3: "Triangle", 4: "Square", 6: "Hexagon"}
+    r = rounding[rounding["rho"] > 0]
+    r = r.groupby(["sides", "rho", "seed"])["response_err"].mean().reset_index()
+    r["shape"] = r["sides"].map(names)
+
+    fig, ax = plt.subplots(figsize=(5, 3.5))
+    ax.axhline(1, color="0.5", linestyle="--", linewidth=1)
+    ax.text(r["rho"].max(), 1.02, "no response", ha="right", va="bottom", fontsize=8, color="0.4")
+    sns.lineplot(
+        data=r, x="rho", y="response_err", hue="shape", hue_order=list(names.values()),
+        palette=["#2a78d6", "#eb6834", "#1baf7a"],  # fixed order: n = 3, 4, 6
+        errorbar="sd", marker="o", markersize=7, linewidth=2, ax=ax,
+    )
+    ax.set_xticks(sorted(r["rho"].unique()))
+    ax.set_xlabel(r"Corner rounding radius $\rho$ ($r_0$)")
+    ax.set_ylabel(r"Response error $\|\Delta\hat q - \Delta q\| / \|\Delta q\|$")
+    ax.set_ylim(bottom=0)
+    ax.grid(axis="y", alpha=0.3)
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.legend(title="", ncol=3, loc="lower center", bbox_to_anchor=(0.5, 1.0), frameon=False)
+    plt.tight_layout()
+    plt.show()

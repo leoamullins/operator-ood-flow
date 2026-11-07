@@ -20,6 +20,7 @@ Problems found during the project, what each one affected, and how it was fixed.
 | 12 | Corner rounding is below the branch input's resolution | Experiment design | Fixed (data); model insensitivity found |
 | 13 | Corrupted header in an evaluation CSV | Data handling | Fixed |
 | 14 | Corner metric crashed on the lobed grid | Metrics | Fixed |
+| 15 | Data-generation doc deleted without being recorded | Documentation | Fixed |
 
 ---
 
@@ -85,7 +86,7 @@ Problems found during the project, what each one affected, and how it was fixed.
 - **Worse on the wider grid:** on `ood_polygrid_s2_n180`, ρ goes up to 0.3. The region (radius 0.3 $r_0$ around the rounding centre) falls from 280 to 101 cells for triangles at ρ = 0.2. At ρ = 0.3 it is empty, because the curved edge sits exactly 0.3 $r_0$ from the centre, so `vel_corner_rmse` is NaN there. The other columns were unaffected.
 - **Fix:** `corner_mask` in `scripts/evaluate.py` now anchors the region to the vertices of the sharp (ρ = 0) polygon, which don't move with ρ, with `CORNER_R` raised to 0.5 $r_0$. It keeps only cells that are fluid for every ρ of the same side count and orientation.
 - **Verification:** within each polygon and orientation, the region is identical across all ρ values: about 780 cells for triangles, 910–970 for squares and 1210–1250 for hexagons. Vertex regions don't overlap, since the closest vertices (hexagon) are 1.1 $r_0$ apart. There are no NaNs. The ρ = 0 values agree between the two polygon grids, which contain the same sharp shapes. Both polygon evaluations were re-run, and their other columns were unchanged.
-- **Effect on results:** these numbers come from a different region, so they replace all earlier `vel_corner_rmse` values. Triangle error now falls clearly with rounding, from 0.324 at ρ = 0 to 0.135 at ρ = 0.3 (mean of 5 seeds, std across seeds ≤ 0.006). See [corner rounding](corner-rounding.md).
+- **Effect on results:** these numbers come from a different region, so they replace all earlier `vel_corner_rmse` values. Triangle error now falls clearly with rounding, from 0.324 at ρ = 0 to 0.135 at ρ = 0.3 (mean of 5 seeds, std across seeds ≤ 0.006). See [findings](findings.md).
 
 ### 12. Corner rounding is below the branch input's resolution — Fixed (data); model insensitivity found
 - **What happened:** one pixel of the 32 × 64 branch SDF is 0.156 $r_0$ across, about twice the largest rounding radius tested (0.075 $r_0$). Rounding changes the SDF input about 20× less than rotating the shape does. The model's near-corner prediction moves by at most 0.005 $u_\mathrm{in}$ between ρ = 0 and 0.075.
@@ -96,7 +97,7 @@ Problems found during the project, what each one affected, and how it was fixed.
   - **True near-corner flow:** changes by 0.232 $u_\mathrm{in}$.
   - **Model's near-corner prediction:** changes by only 0.019 $u_\mathrm{in}$, about 12× less.
 - **Conclusion:** at this range, the input resolution is not the bottleneck, at least by this global measure. The 32 × 64 input preserves the rounding change, but the model barely responds to it. The falling near-corner error (#11) comes from the true flow moving toward the model's nearly fixed prediction, not from the model tracking the geometry.
-- **Caveat:** the global SDF L² is dominated by smooth, far-reaching changes, because keeping the area fixed moves the whole boundary. It may therefore miss whether fine detail at the corner itself survives downsampling. Comparing the SDFs only within the corner region would be a stricter test. See [corner rounding](corner-rounding.md).
+- **Caveat:** the global SDF L² is dominated by smooth, far-reaching changes, because keeping the area fixed moves the whole boundary. It may therefore miss whether fine detail at the corner itself survives downsampling. Comparing the SDFs only within the corner region would be a stricter test. See [findings](findings.md).
 
 ### 13. Corrupted header in an evaluation CSV — Fixed
 - **What happened:** `data/eval/ood_polygrid_s2_n120_seeds.csv` had a stray backtick at the start of its header, so its first column was named `` `seed `` and grouping by `seed` failed. `evaluate.py` doesn't write it, so it was an accidental manual edit.
@@ -106,3 +107,7 @@ Problems found during the project, what each one affected, and how it was fixed.
 - **What happened:** `corner_mask` in `scripts/evaluate.py` treated any dataset that saves `phi` as a polygon grid. The lobed grid also saves `phi` (its orientation), so evaluating `ood_lobedgrid_s2_n180` failed with `KeyError: 'sides is not a file in the archive'`.
 - **Impact:** evaluation stopped with an error, so no results were wrong.
 - **Fix:** the check now requires `sides`, `rho` and `phi` together. The lobed grid was re-evaluated with `vel_corner_rmse` = NaN, and its existing columns were unchanged. The polygon grid still gets a corner mask, and the in-distribution test set still doesn't.
+
+### 15. Data-generation doc deleted without being recorded — Fixed
+- **What happened:** commit `60c27ff` deleted `docs/data.md` (Gaussian random functions, the convex sampler, the solver, dataset generation), although its commit message describes only removing the plot scripts, figures and results pages. The README kept linking to it.
+- **Fix:** its content was recovered from `60c27ff^`, checked against the current code and folded into [methodology](methodology.md) (§2–3) and [theory](theory.md) (§3). The 2026-11-07 docs restructure replaced all the old pages with methodology, findings and theory.
