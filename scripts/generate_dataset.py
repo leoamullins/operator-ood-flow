@@ -15,6 +15,9 @@ if __name__ == "__main__":
         "--scale", type=float, default=Generator.s, help="lattice scale s: r0 = 10 s cells"
     )
     parser.add_argument(
+        "--max-steps", type=int, default=Generator.max_steps, help="LBM step cap; scale with s"
+    )
+    parser.add_argument(
         "--config",
         help="build from a dataset config or saved dataset .json (ignores other flags)",
     )
@@ -37,6 +40,7 @@ if __name__ == "__main__":
             batch=args.batch,
             seed=args.seed,
             s=args.scale,
+            max_steps=args.max_steps,
             shape_kw=shape_kw,
         )
 
