@@ -79,19 +79,17 @@ def load(data_dir=DATA, seed=SEED):
     mean_t = torch.tensor(mean, dtype=torch.float32)
     std_t = torch.tensor(std, dtype=torch.float32)
 
-    return (
-        {
-            "X": X,
-            "Y": Y,
-            "M": M,
-            "Wm": Wm,
-            "Q": Q,
-            "mean": mean_t,
-            "std": std_t,
-        },
-        tr_idx,
-        val_idx,
-    )
+    return {
+        "X": X,
+        "Y": Y,
+        "M": M,
+        "Wm": Wm,
+        "Q": Q,
+        "mean": mean_t,
+        "std": std_t,
+        "tr_idx": tr_idx,
+        "val_idx": val_idx,
+    }
 
 
 def train(config, data, final=False):
