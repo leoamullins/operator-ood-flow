@@ -191,6 +191,19 @@ def _polygon_dist(px, py, corners):
     return np.where(inside, 0.0, dist)
 
 
+def polygon_corners(n, rho, phi, r0):
+    """(n, 2) vertices of the inner n-gon that, grown by rho * r0, has area pi r0^2.
+    They are the rounding centres, in the same units as r0, relative to the body centre."""
+    rho_c = rho * r0
+    # area of the grown n-gon: A(R) + P(R) rho + pi rho^2 = pi r0^2, solve for R
+    qa = n / 2 * np.sin(2 * np.pi / n)
+    qb = 2 * n * np.sin(np.pi / n) * rho_c
+    qc = np.pi * (rho_c**2 - r0**2)
+    R = (-qb + np.sqrt(qb**2 - 4 * qa * qc)) / (2 * qa)
+    ang = phi + 2 * np.pi * np.arange(n) / n
+    return np.column_stack([R * np.cos(ang), R * np.sin(ang)])
+
+
 def sample_polygon_grid(
     n_shapes, Ny, Nx, cx, cy, r0, rng,
     sides=(3, 4, 6), rhos=(0.0, 0.025, 0.05, 0.075), n_orient=10,
@@ -204,13 +217,8 @@ def sample_polygon_grid(
     for n, rho, j in product(sides, rhos, range(n_orient)):
         phi = 2 * np.pi * j / (n_orient * n)
         rho_c = rho * r0  # rounding radius in cells
-        # area of the grown n-gon: A(R) + P(R) rho + pi rho^2 = pi r0^2, solve for R
-        qa = n / 2 * np.sin(2 * np.pi / n)
-        qb = 2 * n * np.sin(np.pi / n) * rho_c
-        qc = np.pi * (rho_c**2 - r0**2)
-        R = (-qb + np.sqrt(qb**2 - 4 * qa * qc)) / (2 * qa)
-        ang = phi + 2 * np.pi * np.arange(n) / n
-        corners = np.column_stack([R * np.cos(ang), R * np.sin(ang)])
+        corners = polygon_corners(n, rho, phi, r0)
+        R = np.hypot(*corners[0])
 
         masks.append(_polygon_dist(px, py, corners) <= rho_c)
 

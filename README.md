@@ -32,9 +32,10 @@ This project asks:
 
 | Page | Contents |
 |---|---|
-| [Background](docs/background.md) | Operator learning and the flow operator |
 | [Data generation](docs/data.md) | Gaussian random functions, convex shape sampling, the LBM solver |
 | [Experiment design](docs/experiment_design.md) | Four-phase programme for finding why the OOD failure happens |
+| [Corner rounding](docs/corner-rounding.md) | Near-corner error vs rounding radius (preliminary) |
+| [Issues log](docs/issues-log.md) | Problems found, their impact, and how each was fixed |
 
 ---
 
