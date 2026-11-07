@@ -1,35 +1,29 @@
 # Operator OOD Flow
 
-**Status:** In progress. A DeepONet trained on 1200 convex shapes reaches 1–3% relative error in distribution. Out-of-distribution evaluation covers a non-convex trefoil, lobed shapes and regular polygons, and most of the OOD error is explained by distance to the nearest training shape. Multiple obstacles are still to do.
+**When a DeepONet trained on flow around smooth convex obstacles meets unseen shapes, where and why does it fail?**
+
+Neural operator surrogates predict a simulation's output in milliseconds rather than minutes, which makes them attractive in engineering design. In design, though, they are used on new shapes unlike anything in their training data, and there a surrogate can be wrong while its predictions still look physically plausible. This project measures which kinds of new geometry a DeepONet handles, and investigates why it fails on the rest.
+
+**Approach.** A lattice Boltzmann solver, written from scratch in JAX, generates steady 2D flow at Re = 20 around 1200 random smooth, near-convex obstacles. A DeepONet learns the map from each obstacle's signed distance field (SDF) to the velocity and pressure fields, and is trained with 5 model seeds. It is then tested on systematic grids that move away from the training family one property at a time: lobe count and amplitude, and polygon side count and corner rounding. All shapes have the same area. A rounding-sensitivity analysis compares how the input, the true flow and the prediction each change between a sharp polygon and its rounded versions.
+
+**Status:** in progress, results preliminary (2026-11-07).
 
 ---
 
-## Problem statement
+## Key preliminary findings
 
-Neural operator surrogates predict a simulation's output in milliseconds rather than minutes, which makes them useful in engineering design, where many shapes need to be evaluated quickly. But in design they are used on new shapes, unlike anything in their training data. There a surrogate can be wrong while its predictions still look physically plausible. To know when to trust it, we need to know which kinds of new geometry it handles, and why it fails on the rest.
+| Velocity relative $L^2$, mean of 5 seeds | All fluid cells | Wall band |
+|---|---|---|
+| In distribution (convex test set) | 0.012 | 0.093 |
+| Lobes, k = 3 → 5 at amplitude 0.2 | 0.046 – 0.079 | 0.27 – 0.44 |
+| Sharp polygons, hexagon → triangle | 0.024 – 0.220 | 0.16 – 0.77 |
 
-This project asks:
+- **In distribution the error is small** (about 1% over all fluid cells) and concentrated at the body surface. Seeds agree to within 0.01.
+- **Lobed shapes:** error grows steadily with lobe amplitude, but not with non-convexity. k = 4 and k = 5 have nearly the same error even though k = 5 is far less convex.
+- **Polygons:** side count sets the error. Triangles reach 18× the in-distribution error, hexagons 2×. Rounding the corners lowers near-corner error by up to 58%.
+- **The model barely responds to the geometry change.** Rounding a triangle's corners to $0.3\,r_0$ changes the true near-corner flow by 0.23 $u_\mathrm{in}$, but the prediction by only 0.019 $u_\mathrm{in}$. The 32 × 64 input keeps the full SDF change, and the response points roughly the right way (alignment ≈ 0.5). Even so, the relative response error is 0.92–0.97, barely better than predicting no change (1.0). The falling error comes from the true flow becoming smoother, not from the model tracking the geometry.
 
-> **When a DeepONet trained on flow around smooth convex obstacles meets unseen shapes, where and why does it fail?**
-
-**Approach.** A lattice Boltzmann solver, written from scratch and validated against flow past a cylinder, generates steady 2D flow at Re = 20 around random smooth convex obstacles. A DeepONet learns to map each obstacle's signed distance field to the velocity and pressure fields. It is then tested on shapes that move step by step away from the training data along three axes: more concavity, sharp corners, and multiple obstacles.
-
----
-
-## Key results so far
-
-| Relative $L^2$ (test set, mean over shapes) | $u_x$ | $u_y$ | $p$ |
-|---|---|---|---|
-| All fluid cells | 0.011 | 0.034 | 0.013 |
-| Wall band ($\|\text{sdf}\| < 0.3\,r_0$) | 0.071 | 0.091 | 0.040 |
-
-- **In distribution**, error is small and concentrated in a thin layer at the body surface, and grows steadily as shapes become less convex. → [Results](docs/results.md)
-- **Non-convex trefoil:** the overall flow is right, but the concave notches are smoothed over, giving 4–5× the test-set median error. → [Results](docs/results.md)
-- **Lobed shapes:** even when fully convex, they are 1.3–1.4× worse than training-family shapes at the same convexity margin. Error grows with lobe amplitude; k=3 lobes are 1.5–2× easier than k=4 and k=5, which behave alike. → [OOD: lobed shapes](docs/ood-lobed.md)
-- **Sharp corners:** error falls steadily with the number of polygon sides; triangles are 9–18× worse than the test set, octagons are close to it except for pressure. → [OOD: sharp corners](docs/ood-polygon.md)
-- **Distance to the training set** predicts error across all sets: polygons with 4–8 sides fall on a line fitted to the convex and lobed shapes. Pressure is 1.5–1.6× worse than distance predicts on both OOD sets, and triangles' error levels off far below the extrapolated line. → [Error vs distance](docs/ood-distance.md)
-
-![Non-convex trefoil](docs/figures/nonconvex_trefoil.png)
+Details, figures and limitations: [findings](docs/findings.md).
 
 ---
 
@@ -37,26 +31,40 @@ This project asks:
 
 | Page | Contents |
 |---|---|
-| [Background](docs/background.md) | Operator learning and the flow operator |
-| [Data generation](docs/data.md) | Gaussian random functions, convex shape sampling, the LBM solver |
-| [Model and training](docs/training.md) | DeepONet architecture, training setup, checkpoints |
-| [In-distribution results](docs/results.md) | Test/validation errors, error vs convexity, trefoil, evaluation commands |
-| [OOD: lobed shapes](docs/ood-lobed.md) | Family-shift offset and amplitude as the OOD axis |
-| [OOD: sharp corners](docs/ood-polygon.md) | Regular polygons, error vs side count, where the corner error sits |
-| [Error vs distance](docs/ood-distance.md) | Nearest-training-shape distance as a shared predictor of OOD error |
+| [Methodology](docs/methodology.md) | Experimental protocol, solver, datasets, model and training, metrics |
+| [Findings](docs/findings.md) | Measured results, figures, interpretation and limitations |
+| [Theory](docs/theory.md) | LBM, shape families, DeepONet, metric definitions and the response-error identity |
+| [Issues log](docs/issues-log.md) | Problems found, their impact, and how each was fixed |
 
 ---
 
-## Quickstart
+## Reproduction
 
-Set up the Python 3.13 environment with `uv sync --locked`, then run from the project root:
+Set up the Python 3.13 environment with `uv sync --locked`, then run from the project root. Dataset generation and training need a GPU. The Colab notebooks in `notebooks/` wrap the same commands.
 
 ```bash
-uv run python -m scripts.generate_dataset                                    # -> data/train_convex.npz
-EPOCHS=1000 WALL_FRAC=0.5 uv run python -m scripts.train                     # -> checkpoints/best.pt
-uv run python -m scripts.generate_dataset --seed 1 --n-shapes 200 --out test_convex
-uv run python -m scripts.evaluate checkpoints/best.pt test_convex            # -> data/test_convex_eval.csv
+# 1. Data (s = 2). A dataset's saved .json can be passed back to --config to regenerate it.
+uv run python -m scripts.generate_dataset --scale 2 --max-steps 80000 --out train_convex_s2_n1200_seed0
+uv run python -m scripts.generate_dataset --scale 2 --max-steps 80000 --seed 1 --n-shapes 200 --out test_convex_s2_n200_seed1
+uv run python -m scripts.generate_dataset --sampler lobed_grid --scale 2 --max-steps 80000 --out ood_lobedgrid_s2_n180
+uv run python -m scripts.generate_dataset --config <config with rhos 0..0.3>.json --out ood_polygrid_s2_n180
+#    (config: copy data/ood_polygrid_s2_n180.json, or see notebooks/generate_polygrid_rho.ipynb)
+
+# 2. Train: Ray Tune search, then retrain the best config -> checkpoints/best.pt
+uv run python -m scripts.train
+#    Seeds 0, 123, 456, 789, 2026 retrain the tuned config into checkpoints/seed<s>/best.pt
+#    (see notebooks/train_seeds.ipynb; the train/val split is fixed at seed 0)
+
+# 3. Evaluate every seed -> data/eval/<dataset>_seeds.csv
+uv run python -m scripts.evaluate test_convex_s2_n200_seed1
+uv run python -m scripts.evaluate ood_lobedgrid_s2_n180
+uv run python -m scripts.evaluate ood_polygrid_s2_n180
+
+# 4. Rounding sensitivity -> data/eval/ood_polygrid_s2_n180_rounding.csv
+uv run python -m scripts.rounding_sensitivity ood_polygrid_s2_n180
 ```
+
+Figures come from `notebooks/plots.ipynb`, using the functions in `operator_ood_flow/plotting.py`. Current results were generated from commit `5e83718` onward.
 
 ---
 
@@ -64,8 +72,9 @@ uv run python -m scripts.evaluate checkpoints/best.pt test_convex            # -
 
 | Path | Contents |
 |---|---|
-| `operator_ood_flow/` | Geometry, Gaussian random fields, LBM solver, DeepONet, and data preparation |
-| `scripts/` | Dataset generation, training, evaluation, and plotting |
-| `data/` | Generated datasets and evaluation CSVs |
-| `checkpoints/` | Model weights and training history |
-| `docs/` | Project documentation and figures |
+| `operator_ood_flow/` | Geometry and shape samplers, Gaussian random fields, LBM solver, DeepONet, preprocessing, metrics, plotting |
+| `scripts/` | Dataset generation, training, evaluation, rounding sensitivity, LBM convergence study |
+| `data/` | Datasets (`.npz` + `.json` settings); evaluation CSVs in `data/eval/` |
+| `checkpoints/` | Model weights per seed (`seed<s>/best.pt`) |
+| `figures/` | Figures used in the findings |
+| `docs/` | Documentation |

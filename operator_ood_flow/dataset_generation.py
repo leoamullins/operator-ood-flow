@@ -6,7 +6,9 @@ import numpy as np
 
 from .geometry import (
     sample_convex_shapes,
+    sample_lobed_grid,
     sample_lobed_shapes,
+    sample_polygon_grid,
     sample_polygon_shapes,
     signed_distance,
 )
@@ -16,11 +18,15 @@ DEFAULT_SHAPE_KW = {
     "convex": {"eps": 0.08, "ell": 1.0, "a1_max": 0.3, "a2_max": 0.18, "tol": -0.2},
     "lobed": {"amp": [0.1, 0.4]},
     "polygon": {"sides": [3, 4, 5, 6, 7, 8]},
+    "lobed_grid": {"ks": [3, 4, 5], "amps": [0.04, 0.08, 0.12, 0.16, 0.2], "n_orient": 12},
+    "polygon_grid": {"sides": [3, 4, 6], "rhos": [0.0, 0.025, 0.05, 0.075], "n_orient": 10},
 }
 SAMPLERS = {
     "convex": sample_convex_shapes,
     "lobed": sample_lobed_shapes,
     "polygon": sample_polygon_shapes,
+    "lobed_grid": sample_lobed_grid,
+    "polygon_grid": sample_polygon_grid,
 }
 DEFAULT_PATH = Path(__file__).resolve().parent.parent / "data"
 
