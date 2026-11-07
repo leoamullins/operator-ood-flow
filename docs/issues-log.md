@@ -21,6 +21,8 @@ Problems found during the project, what each one affected, and how it was fixed.
 | 13 | Corrupted header in an evaluation CSV | Data handling | Fixed |
 | 14 | Corner metric crashed on the lobed grid | Metrics | Fixed |
 | 15 | Data-generation doc deleted without being recorded | Documentation | Fixed |
+| 16 | Some rounded polygons rasterise identically to their sharp shape | Data | Handled (NaN) |
+| 17 | float32 predictions put Δq̂ outside the trunk span | Metrics | Fixed |
 
 ---
 
@@ -111,3 +113,13 @@ Problems found during the project, what each one affected, and how it was fixed.
 ### 15. Data-generation doc deleted without being recorded — Fixed
 - **What happened:** commit `60c27ff` deleted `docs/data.md` (Gaussian random functions, the convex sampler, the solver, dataset generation), although its commit message describes only removing the plot scripts, figures and results pages. The README kept linking to it.
 - **Fix:** its content was recovered from `60c27ff^`, checked against the current code and folded into [methodology](methodology.md) (§2–3) and [theory](theory.md) (§3). The 2026-11-07 docs restructure replaced all the old pages with methodology, findings and theory.
+
+### 16. Some rounded polygons rasterise identically to their sharp shape — Handled (NaN)
+- **What happened:** in `ood_polygrid_s2_n180`, 16 of the 150 rounded shapes (all at ρ = 0.05, e.g. squares at several orientations) give exactly the same LBM fields as their ρ = 0 shape, so Δq = 0. `response_decomposition` in `scripts/projection_experiment.py` raised `ValueError: True flow response is nearly zero` on the first one.
+- **Impact:** there is no response to decompose for these shapes, and their ρ = 0.05 averages come from fewer shapes. `rounding_sensitivity.py` already gives NaN for them.
+- **Fix:** the projection run catches the error and writes NaN for these rows. Unverified: the likely cause is that a 0.05 $r_0$ rounding (0.15 LBM cells at s = 2) doesn't change which cells are solid.
+
+### 17. float32 predictions put Δq̂ outside the trunk span — Fixed
+- **What happened:** the trunk-span projection requires $E_\mathrm{total}^2 = E_\mathrm{trunk}^2 + E_\mathrm{branch}^2$, which holds only if Δq̂ lies exactly in the trunk span. With float32 inputs the identity was off by up to 0.014. Moving the least squares to float64 only reduced this to 1.3e-5, and changing `rcond` had no effect, so the basis's conditioning was not the cause (this was first misdiagnosed as conditioning).
+- **Cause:** catastrophic cancellation. Δq̂ is only about 1% of q̂, so computing q̂_ρ − q̂_0 from float32 model outputs leaves a ~1e-4 relative error, and that error lies outside the span. With the model run in float64, Δq̂ lies in the span to ~1e-13 (checked per field on seed 0).
+- **Fix:** `scripts/experiment_1.py` and `scripts/experiment_1_responses.py` now run the model in float64 and save float64 trunk bases and Δq̂. The largest identity residual is now 2e-10 across all seeds, shapes, regions and fields. The velocity response error on the corner region matches `ood_polygrid_s2_n180_rounding.csv` to 1.8e-4; the remaining difference is the float32 error in that CSV.

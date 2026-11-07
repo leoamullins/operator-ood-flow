@@ -152,3 +152,52 @@ def plot_response_error(rounding):
     ax.legend(title="", ncol=3, loc="lower center", bbox_to_anchor=(0.5, 1.0), frameon=False)
     plt.tight_layout()
     plt.show()
+
+
+def plot_response_decomposition(projection, field="vel", region="corner"):
+    """
+    Where the response error comes from: E_total^2 = E_trunk^2 + E_branch^2 stacked per
+    rounding radius, one panel per side count. E_trunk is the part of the true response
+    dq outside the trunk span (no coefficients could fix it); E_branch is the gap between
+    the best trunk approximation of dq and the prediction (wrong branch coefficients).
+    projection is data/eval/<dataset>_projection.csv (scripts.projection_experiment);
+    squared errors are averaged over orientations per seed, then over seeds (whisker =
+    +-1 std of E_total^2 across seeds). Example usage in notebooks/plots.ipynb
+    """
+    names = {3: "Triangle", 4: "Square", 6: "Hexagon"}
+    parts = {"trunk": "#eda100", "branch": "#6250d6"}  # violet/yellow: not the shape colours
+    d = projection[(projection["field"] == field) & (projection["region"] == region)].copy()
+    for k in ("trunk", "branch", "response"):
+        col = "response_error" if k == "response" else f"{k}_error"
+        d[k] = d[col] ** 2
+    per_seed = d.groupby(["sides", "rho", "seed"])[["trunk", "branch", "response"]].mean()
+    mean = per_seed.groupby(["sides", "rho"]).mean()
+    sd = per_seed.groupby(["sides", "rho"])["response"].std()
+
+    fig, axes = plt.subplots(1, 3, figsize=(10, 3.4), sharey=True)
+    for ax, (n, name) in zip(axes, names.items()):
+        m, s = mean.loc[n], sd.loc[n]
+        x = range(len(m))
+        bottom = 0
+        for k, color in parts.items():
+            ax.bar(x, m[k], 0.7, bottom=bottom, color=color, edgecolor="white", linewidth=2)
+            bottom = bottom + m[k]
+        ax.errorbar(x, m["response"], yerr=s, fmt="none", ecolor="0.3", capsize=3, linewidth=1)
+        for xi, (tot, tr) in enumerate(zip(m["response"], m["trunk"])):
+            ax.text(xi, tot + s.iloc[xi] + 0.03, f"{tr / tot:.0%}", ha="center", fontsize=7, color="0.3")
+        ax.set_xticks(list(x), [f"{r:g}" for r in m.index])
+        ax.set_xlabel(r"Corner rounding radius $\rho$ ($r_0$)")
+        ax.set_title(name, loc="left", fontsize=10)
+        ax.grid(axis="y", alpha=0.3)
+        ax.set_axisbelow(True)
+        ax.spines[["top", "right"]].set_visible(False)
+    axes[0].set_ylabel(r"Squared response error $E_\mathrm{total}^2$")
+    fig.legend(
+        [plt.Rectangle((0, 0), 1, 1, color=c) for c in parts.values()],
+        [r"trunk: $\Delta q$ outside the trunk span", r"branch: wrong coefficients"],
+        ncol=2, loc="upper center", frameon=False,
+    )
+    fig.text(0.99, 0.01, "label above bar: trunk share of $E_\\mathrm{total}^2$",
+             ha="right", fontsize=7, color="0.4")
+    plt.tight_layout(rect=(0, 0.03, 1, 0.9))
+    plt.show()
