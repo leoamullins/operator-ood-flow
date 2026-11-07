@@ -16,12 +16,13 @@ DATA = ROOT / "data" / "train_convex_s2_n1200_seed0"
 OUT = ROOT / "checkpoints"
 SEED = 0
 N_VAL = 200
-SDF_RES = (128, 256)  # branch input resolution (downsampled SDF)
+SDF_RES = (32, 64)  # branch input resolution (downsampled SDF)
 BATCH = 32  # shapes per batch
 N_POINTS = 2048  # random query points per batch
 EPOCHS = 50
 LR, WEIGHT_DECAY = 5e-4, 1e-4
 P_DIM, WIDTH = 128, 256
+WARMUP_FRAC = 0.02  # linear warmup over this fraction of steps, then cosine decay
 
 device = torch.device(
     "cuda"
@@ -119,6 +120,18 @@ def train(config, data, final=False):
     opt = torch.optim.AdamW(
         model.parameters(), lr=config["lr"], weight_decay=config["weight_decay"]
     )
+    total = config["epochs"] * len(train_loader)
+    warm = int(WARMUP_FRAC * total)
+    sched = torch.optim.lr_scheduler.SequentialLR(
+        opt,
+        [
+            torch.optim.lr_scheduler.LinearLR(opt, start_factor=0.01, total_iters=warm),
+            torch.optim.lr_scheduler.CosineAnnealingLR(
+                opt, T_max=total - warm, eta_min=config["lr"] * 1e-3
+            ),
+        ],
+        milestones=[warm],
+    )
 
     best = float("inf")
     for epoch in range(1, config["epochs"] + 1):
@@ -133,7 +146,9 @@ def train(config, data, final=False):
 
             opt.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
+            sched.step()
 
         rel, wall = evaluate(model, val_loader, Q, mean, std)
         if not final:
