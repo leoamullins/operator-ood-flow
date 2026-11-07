@@ -14,22 +14,27 @@ from operator_ood_flow.preprocessing import EVAL_BAND, downsample_sdf, load_data
 ROOT = Path(__file__).resolve().parent.parent
 
 BATCH = 32  # shapes per forward pass
-CORNER_R = 0.3  # corner region: query points within this distance (r0 units) of a vertex
+CORNER_R = 0.5  # corner region: query points within this distance (r0 units) of a vertex
 
 
-def corner_mask(path, coords):
-    """(N, H * W) True within CORNER_R of a rounding centre, for polygon grid datasets
-    (they save sides, rho and phi); None for any other dataset."""
+def corner_mask(path, coords, masks):
+    """(N, H * W) corner region for polygon grid datasets (they save sides, rho and phi);
+    None for any other dataset. The region is anchored to the sharp (rho = 0) polygon's
+    vertices, which don't move with rho, and keeps only cells that are fluid for every
+    rho of the same sides and orientation, so all rho values are scored on the same cells."""
     with np.load(str(path) + ".npz") as d:
-        if "phi" not in d.files:
+        if not {"sides", "rho", "phi"} <= set(d.files):  # lobed grids save phi too
             return None
-        params = zip(d["sides"], d["rho"], d["phi"])
-        return np.array([
-            np.linalg.norm(
-                coords[:, None] - polygon_corners(int(n), rho, phi, 1.0)[None], axis=-1
-            ).min(1) < CORNER_R
-            for n, rho, phi in params
-        ])
+        sides, phi = d["sides"].astype(int), d["phi"]
+    fluid = ~masks.reshape(len(masks), -1)
+    out = np.zeros_like(fluid)
+    for n, ph in set(zip(sides, phi)):
+        group = (sides == n) & (phi == ph)  # same polygon and orientation, every rho
+        near = np.linalg.norm(
+            coords[:, None] - polygon_corners(n, 0.0, ph, 1.0)[None], axis=-1
+        ).min(1) < CORNER_R
+        out[group] = near & fluid[group].all(0)
+    return out
 
 
 def geometry(path):
@@ -87,7 +92,7 @@ def val_all_seeds_(dataset, val=False, seeds=(0, 123, 456, 789, 2026), out=None)
     path = ROOT / "data" / dataset
     sdf, masks, fields, coords = load_data(path)  # same data for every seed
     geo = geometry(path)
-    corners = corner_mask(path, coords)
+    corners = corner_mask(path, coords, masks)
     with open(str(path) + ".json") as f:
         u_in = json.load(f)["u_in"]
     Q = torch.tensor(coords)

@@ -2,7 +2,27 @@
 
 [← Back to README](../README.md)
 
-**Status:** preliminary (2026-11-07). The rounding range tested is too small to count as a real shift; see [Next steps](#next-steps).
+**Status:** preliminary (2026-11-07). The first grid's rounding range was too small to count as a real shift, and its corner region shrank as ρ grew. Both have been fixed; see [Update: fixed region and wider ρ range](#update-fixed-region-and-wider-ρ-range). The original analysis below is kept for the record, but its numbers are superseded.
+
+## Update: fixed region and wider ρ range
+
+- **Metric (current):** RMSE of the velocity vector divided by $u_\mathrm{in}$, over fluid cells within `CORNER_R` = 0.5 $r_0$ of the **sharp** polygon's vertices. Only cells that are fluid for every ρ of the same polygon and orientation are used, so every ρ is scored on identical cells ([issues log #11](issues-log.md)).
+- **Data:** `ood_polygrid_s2_n120` (ρ up to 0.075) and `ood_polygrid_s2_n180` (ρ ∈ {0, 0.05, 0.1, 0.15, 0.2, 0.3}). Both have 3, 4 and 6 sides at 10 orientations.
+
+Near-corner velocity RMSE / $u_\mathrm{in}$ on `ood_polygrid_s2_n180`, mean over 5 seeds (std across seeds ≤ 0.006):
+
+| | ρ = 0 | 0.05 | 0.1 | 0.15 | 0.2 | 0.3 |
+|---|---|---|---|---|---|---|
+| Triangle | 0.324 | 0.305 | 0.270 | 0.235 | 0.202 | 0.135 |
+| Square | 0.164 | 0.161 | 0.144 | 0.132 | 0.123 | 0.100 |
+| Hexagon | 0.053 | 0.049 | 0.049 | 0.047 | 0.046 | 0.039 |
+
+The ρ = 0 values match those from `ood_polygrid_s2_n120`, which contains the same sharp shapes.
+
+- **Rounding now lowers the error clearly.** Triangle error falls by 58% from ρ = 0 to 0.3, square by 39% and hexagon by 26%. Rounding by ρ = 0.3 matters about as much as one extra side: a triangle rounded with ρ = 0.3 (0.135) is better than a sharp square (0.164), but still worse than a square rounded with ρ = 0.3 (0.100).
+- **The drop comes from the true flow, not from the model.** Rounding a triangle to ρ = 0.3 changes the true near-corner flow by 0.232 $u_\mathrm{in}$, but the model's prediction by only 0.019 $u_\mathrm{in}$. Meanwhile the 32 × 64 branch input keeps the full SDF change (0.786 vs 0.787 $r_0^2$ at native resolution). So the model receives a clearly different input and barely responds to it. This suggests the limit is the model's insensitivity to the input rather than the input's resolution ([issues log #12](issues-log.md), including a caveat about the global SDF norm).
+- **The model responds in roughly the right direction, but far too weakly.** The alignment $C(\rho) = \langle \Delta q, \Delta\hat q\rangle / (\|\Delta q\|\|\Delta\hat q\|)$ between the true and predicted near-corner velocity changes is 0.46–0.64 for every side count and ρ (std across seeds ≤ 0.05). That is clearly positive, though some individual shapes go as low as −0.39. The component of the response along the true change, $C\,\|\Delta\hat q\| / \|\Delta q\|$, is about 0.04 for triangles at ρ = 0.3, 0.05 for squares and 0.18 for hexagons. So the model reproduces only about 4–18% of the true change. This looks like a damped response rather than a wrong one, which is relevant to the spectral-bias (NTK) phase of the [experiment design](experiment_design.md).
+- **Figure:** `plotting.plot_rounding_sensitivity` shows (a) the SDF change at native and branch resolution, (b) the true flow change vs the prediction change, (c) the near-corner error and (d) the alignment $C(\rho)$, all against ρ. The data comes from `uv run python -m scripts.rounding_sensitivity ood_polygrid_s2_n180`.
 
 ## Setup
 
